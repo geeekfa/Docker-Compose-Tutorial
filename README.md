@@ -156,12 +156,12 @@ Docker Compose is a tool for running multi-container applications on Docker defi
       - `expose:` Exposes ports without publishing them to the host machine.
       - `- "5000"` Exposes port 5000 on the back-end service. This is the port where the backend server is presumably listening for incoming requests.
 
-   6. Docker Compose Up:
+6. Docker Compose Up:
       - Run the following command to bring up the entire stack:
          ```bash
          sudo docker-compose up -d
          ```
-   7. Testing:
+7. Testing:
       - Open your browser and navigate to http://localhost. You should see the the Book List on the page.
       - Also by navigating to http://localhost/api, You should see the Swagger page and be able to interact with the APIs.
 
