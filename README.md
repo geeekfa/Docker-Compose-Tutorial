@@ -171,19 +171,31 @@ Docker Compose is a tool for running multi-container applications on Docker defi
 
 # Docker on AWS Linux 2
 
-1. Launch an AWS Linux 2 Instance:
+1. Make sure you have pushed [Api-Flask](https://github.com/geeekfa/Api-Flask) Docker image to Docker Hub. If you don't have this Docker image in your machine, read [Dockerizing a Python Flask App: A Step-by-Step Guide to Containerizing Your Web Application](https://medium.com/@geeekfa/dockerizing-a-python-flask-app-a-step-by-step-guide-to-containerizing-your-web-application-d0f123159ba2) article. By the way, run the following command to push the Docker image to Docker hub.
+   ```bash
+   docker login
+
+   # amd64
+   docker buildx build --platform linux/amd64 -t <your_docker_hub_username>/api-flask:latest-amd64 --push .
+
+   # arm64
+   docker buildx build --platform linux/arm64 -t <your_docker_hub_username>/api-flask:latest-arm64 --push .
+   ```
+
+2. Launch an AWS Linux 2 Instance:
    - Start by launching an AWS EC2 instance with the Amazon Linux 2 AMI.
 
-2. Open a terminal and `SSH` to the AWS EC2 instance:
+3. Open a terminal and `SSH` to the AWS EC2 instance:
       ```bash
       ssh -i <YOUR_PRIVATE_KEY.pem> <YOUR_USER_NAME>@<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>
       ```
-3. Update the System:
+
+4. Update the System:
    ```bash
    sudo yum update -y
    ```
 
-4. Install Docker and enable Docker to start on boot:
+5. Install Docker and enable Docker to start on boot:
     ```bash
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras install docker
@@ -192,32 +204,113 @@ Docker Compose is a tool for running multi-container applications on Docker defi
     sudo systemctl enable docker
     ```
 
-5. Verify Docker Installation:
+6. Verify Docker Installation:
    - Close and reopen the terminal to run the following command.
         ```bash
         docker info
         ```
-6. Install the last version of Docker Compose:
+
+7. Install the last version of Docker Compose:
     ```bash
     sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
     sudo chmod +x /usr/local/bin/docker-compose
     ```
-7. Verify Docker Compose Installation:
+
+8. Verify Docker Compose Installation:
    ```
    docker-compose version
    ```
-8. Copy Docker Compose content to the AWS EC2 instance:
-   - Open a new terminal and `cd` to the [Docker-Compose-Tutorial](https://github.com/geeekfa/Docker-Compose-Tutorial) folder.
-   - Copy the folder to the AWS EC2 instance.
+
+9.  Some modifications:
+      - Clone [Docker-Compose-Tutorial](https://github.com/geeekfa/Docker-Compose-Tutorial) repository If you don't have it in your machine.
+      - Open `docker-compose.yml`
+        - Modify 
+            ```yaml
+            back-end:
+               image: api-flask
+            ```
+            To
+            ```yaml
+            back-end:
+               image: <your_docker_hub_username>/api-flask:latest-amd64
+            ```
+            This modification is because of that `docker-compose` on AWS EC2 instance must pull the `api-flask` Docker image from Docker Hub at first. finally, after the modification, your `docker-compose.yml` is like the following:
+            ```yaml
+            version: '3'
+
+            services:
+               nginx:
+                  image: nginx
+                  volumes:
+                     - ./nginx:/etc/nginx/conf.d
+                     - ./front-end:/var/www/front-end
+                  ports:
+                     - "80:80"
+
+               back-end:
+                  image: <your_docker_hub_username>/api-flask:latest-amd64
+                  volumes:
+                     - ./back-end/.env:/api-flask/.env
+                  expose:
+                     - "5000"
+            ```
+       - Open `nginx/nginx.conf`
+          - Modify
+            ```html
+            server_name  localhost;
+            ```
+            To
+            ```html
+            server_name  <THE_AWS_EC2_PUBLIC_DNS_ADDRESS>;
+            ```
+            finally, after the modification, your `nginx/nginx.conf` is like the following:
+            ```html
+            server {
+               listen       80;
+               server_name  <THE_AWS_EC2_PUBLIC_DNS_ADDRESS>;
+               root /var/www/front-end;
+
+               location /api {
+                        proxy_pass http://back-end:5000;
+                        proxy_set_header Host $host;
+                        proxy_set_header X-Real-IP $remote_addr;
+                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                        proxy_set_header X-Forwarded-Proto $scheme;
+               }
+            }
+            ```
+
+
+      - Open `.env`
+          - Modify
+            ```
+            DOMAIN=localhost
+            PORT=80
+            PREFIX=/api
+            ```
+            To
+            ```html
+            DOMAIN=<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>
+            PORT=80
+            PREFIX=/api
+            ```
+      - Open `front-end/index.html`
+          - Search `localhost` and replace with `<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>`
+  
+10. Copy Docker Compose content to the AWS EC2 instance:
+    - Open a new terminal and `cd` to the `Docker-Compose-Tutorial` folder.
+    - Copy the folder to the AWS EC2 instance.
       ```bash
-      scp -i <YOUR_PRIVATE_KEY.pem>  -r Docker-Compose-Tutorial <YOUR_USER_NAME>@<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>:~/Docker-Compose-Tutorial
+      scp -i <YOUR_PRIVATE_KEY.pem>  -r . <YOUR_USER_NAME>@<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>:~/Docker-Compose-Tutorial
 
       ```
-9. Return to the terminal from which you `SSH` to the AWS EC2 instance.
+
+11. Return to the terminal from which you `SSH` to the AWS EC2 instance.
       ```bash
       cd Docker-Compose-Tutorial
-      sudo docker-compose up -d
+      docker-compose up -d
       ```
-10. Testing:
+
+12. Testing:
     - Open your browser and navigate to [http://<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>](). You should see the the Book List on the page.
     - Also by navigating to [http://<THE_AWS_EC2_PUBLIC_DNS_ADDRESS>/api](), You should see the Swagger page and be able to interact with the APIs.

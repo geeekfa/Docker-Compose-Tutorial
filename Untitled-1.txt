@@ -1,0 +1,3 @@
+ssh -i ~/.ssh/agmsulutions.pem ec2-user@ec2-3-93-170-144.compute-1.amazonaws.com
+
+scp -i ~/.ssh/agmsulutions.pem  -r . ec2-user@ec2-3-93-170-144.compute-1.amazonaws.com:~/Docker-Compose-Tutorial
